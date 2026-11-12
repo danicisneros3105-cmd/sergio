@@ -1,0 +1,27 @@
+[skill]
+name = "media-find-organize"
+description = "Busqueda inteligente y organizacion automatica de fotos y videos entre dispositivos."
+
+capabilities = [
+  "Buscar fotos/videos por contenido visual (sin metadata)",
+  "Organizar automaticamente por escenas, rostros, objetos y emociones",
+  "Indexar medios locales, en la nube y redes sociales",
+  "Busqueda por lenguaje natural: 'el clip donde sale el perro corriendo'",
+  "Sincronizacion bidireccional entre dispositivos",
+  "Deteccion de duplicados y contenido similar",
+  "Generar contact sheets y previews",
+]
+
+[skill.parameters]
+query = { type = "string", required = true, description = "Busqueda en lenguaje natural" }
+source = { type = "string", default = "local", description = "local|cloud|social|all" }
+action = { type = "string", default = "search", description = "search|organize|sync|deduplicate" }
+
+[skill.examples]
+example_1 = "Busca el video donde salgo con mi perro en la playa"
+example_2 = "Organiza automaticamente todas mis fotos de 2024 por eventos"
+
+[skill.restrictions]
+- "Todo el procesamiento es local (costo $0)"
+- "No subir contenido del usuario a servicios de terceros sin permiso"
+- "Respetar privacidad: no indexar contenido privado sin consentimiento"

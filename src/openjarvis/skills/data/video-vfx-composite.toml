@@ -1,0 +1,29 @@
+[skill]
+name = "video-vfx-composite"
+description = "Composicion VFX avanzada con Blender, tracking de movimiento, chroma key y efectos especiales."
+
+capabilities = [
+  "Chroma key profesional con refinado de bordes por IA",
+  "Tracking de movimiento 2D/3D",
+  "Composicion multi-capa con blending modes",
+  "Exportacion directa a Blender para VFX avanzados",
+  "Simulacion de particulas, fluidos, humo y fuego",
+  "Cloth simulation para ropa y telas",
+  "Hologramas 3D manipulables",
+  "Integracion de CGI con footage real",
+]
+
+[skill.parameters]
+input_path = { type = "string", required = true }
+vfx_type = { type = "string", default = "chroma_key", description = "chroma_key|tracking|particles|destruction|hologram|cgi_integration" }
+background_path = { type = "string", default = "", description = "Fondo para chroma key" }
+output_path = { type = "string", default = "", description = "Ruta de salida" }
+
+[skill.examples]
+example_1 = "Aplica chroma key profesional a este video con fondo verde"
+example_2 = "Anade tracking de movimiento para insertar texto 3D en esta escena"
+
+[skill.restrictions]
+- "Usar ffmpeg local para chroma key basico (costo $0)"
+- "Blender solo para VFX avanzados que requieran 3D"
+- "Priorizar simulaciones locales sobre render cloud"

@@ -1,0 +1,25 @@
+[skill]
+name = "trend-radar-full"
+description = "Radar predictivo completo: detecta micro-tendencias, analiza retencion y genera plan de accion."
+
+capabilities = [
+  "Analizar tendencias en TikTok, Reels, Shorts, X, Pinterest, Google Trends",
+  "Detectar micro-tendencias 24-168h antes de que exploten",
+  "Simular retencion de audiencia segundo a segundo",
+  "Identificar gap competitivo en el nicho",
+  "Generar guion viral basado en tendencia detectada",
+  "Proponer audio, visual style y hashtags optimos",
+]
+
+[skill.parameters]
+niche = { type = "string", required = true, description = "Nicho o sector a analizar" }
+platform = { type = "string", default = "all", description = "Plataforma objetivo" }
+depth = { type = "string", default = "standard", description = "Profundidad del analisis" }
+
+[skill.examples]
+example_1 = "Analiza tendencias en fitness para TikTok"
+example_2 = "Detecta micro-tendencias en cocina saludable y crea un guion de 60s"
+
+[skill.restrictions]
+- "Usar Gemini gratis primero; OpenRouter solo si se necesita modelo avanzado"
+- "Limitar a 3 tendencias top por analisis para ahorrar tokens"

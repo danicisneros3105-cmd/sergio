@@ -1,0 +1,28 @@
+[skill]
+name = "human-analysis"
+description = "Analisis humano de contenido con connectome fly brain: predice viralidad, detecta x-factor, extrae ADN creativo."
+
+capabilities = [
+  "Analizar contenido como un humano (no como algoritmo)",
+  "Simular emociones usando el connectome (cerebro de mosca)",
+  "Detectar x-factor emocional invisible para metricas",
+  "Predecir probabilidad de viralidad con razonamiento",
+  "Extraer ADN creativo unico del creador",
+  "Identificar superpoder, kryptonite y deseo secreto de audiencia",
+  "Proponer cambios accionables especificos",
+]
+
+[skill.parameters]
+content = { type = "string", required = true, description = "Contenido a analizar" }
+action = { type = "string", default = "analyze", description = "analyze | viral_dna | predict | learn" }
+platform = { type = "string", default = "tiktok" }
+context = { type = "string", default = "", description = "Contexto del creador" }
+history = { type = "string", default = "", description = "Historial de trabajos (para viral_dna)" }
+
+[skill.examples]
+example_1 = "Analiza este guion como si fueras humano: por que se haria viral?"
+example_2 = "Extrae mi ADN creativo de estos 5 videos anteriores"
+
+[skill.restrictions]
+- "Usar Gemini gratis primero; OpenRouter como fallback"
+- "Limitar content a 3000 chars para ahorrar tokens"

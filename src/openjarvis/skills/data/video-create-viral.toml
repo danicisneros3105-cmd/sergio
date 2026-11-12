@@ -1,0 +1,29 @@
+[skill]
+name = "video-create-viral"
+description = "Creacion de videos virales desde cero: guion, storyboard, generacion de assets, edicion y publicacion."
+
+capabilities = [
+  "Generar guion viral con hook brutal en 3 primeros segundos",
+  "Crear storyboard visual automatico",
+  "Generar imagenes/thumbnails con IA (local o API)",
+  "Sugerir musica y efectos de sonido",
+  "Crear versiones para multiples plataformas",
+  "Optimizar para algoritmo de cada plataforma",
+  "Predecir viralidad antes de publicar",
+]
+
+[skill.parameters]
+topic = { type = "string", required = true, description = "Tema del video" }
+platform = { type = "string", default = "tiktok" }
+duration = { type = "number", default = 60, description = "Duracion en segundos" }
+style = { type = "string", default = "dynamic", description = "dynamic|educational|emotional|comedic" }
+language = { type = "string", default = "es" }
+
+[skill.examples]
+example_1 = "Crea un video viral de 60s sobre hack de productividad para TikTok"
+example_2 = "Genera un tutorial de 90s sobre edicion de color para YouTube Shorts"
+
+[skill.restrictions]
+- "Usar Gemini gratis para guiones (costo $0)"
+- "Usar Kokoro local para voiceover basico (costo $0)"
+- "Limitar generacion de imagenes a 3 por video para ahorrar presupuesto"
