@@ -1,141 +1,128 @@
-import path from 'path';
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
-import { VitePWA } from 'vite-plugin-pwa';
-import { execSync } from 'child_process';
-import fs from 'fs';
-
-// Every build has its own id; /version.json tells an old open copy to reload
-// (src/lib/freshness.ts), so after an update nobody keeps seeing the old web.
-const buildId = (() => {
-  let sha = 'local';
-  try {
-    sha = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
-  } catch {
-    /* not a git checkout */
-  }
-  return `${sha}-${Date.now().toString(36)}`;
-})();
-
-// VITE_SUPABASE_ANON_KEY is intentionally NOT required here: a missing key
-// disables the savings leaderboard at runtime (see src/lib/supabase.ts) rather
-// than failing the build, so the package/app stays publishable without it.
-// jarvis gui sets the proxy target without exposing an absolute API URL to the
-// browser, so requests stay on Vite's origin even on a custom frontend port.
-const apiTarget = process.env.OPENJARVIS_VITE_PROXY_TARGET
-  || process.env.VITE_API_URL
-  || 'http://localhost:8000';
-
-// `npm run build:demo`: the whole app with no server, for the interactive demo.
-const demo = process.env.VITE_DEMO === '1';
+import path from "path"
+import react from "@vitejs/plugin-react"
+import { defineConfig } from "vite"
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  define: { __BUILD_ID__: JSON.stringify(buildId) },
-  base: demo ? './' : '/',
+  server: {
+    proxy: {
+      '/voicevox': {
+        target: 'http://localhost:50021',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/voicevox/, ''),
+      },
+    },
+  },
+  plugins: [react(), VitePWA({
+    registerType: 'autoUpdate',
+    injectRegister: 'auto',
+    manifest: {
+      name: 'Sergio Studio — Editor de Video con IA',
+      short_name: 'Sergio Studio',
+      description: 'Editor de video profesional con IA. Video Boost IMAX, creador de videos para redes sociales, trend radar, y mas.',
+      theme_color: '#070b11',
+      background_color: '#070b11',
+      display: 'standalone',
+      display_override: ['standalone', 'fullscreen', 'minimal-ui'],
+      orientation: 'any',
+      start_url: '/',
+      scope: '/',
+      lang: 'es',
+      dir: 'ltr',
+      categories: ['photo', 'video', 'productivity'],
+      icons: [
+        { src: '/pwa-64x64.png', sizes: '64x64', type: 'image/png' },
+        { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any maskable' },
+      ],
+      screenshots: [
+        {
+          src: '/screenshot-wide.jpg',
+          sizes: '1280x720',
+          type: 'image/jpeg',
+          form_factor: 'wide',
+          label: 'Editor de video con IA en modo oscuro'
+        },
+        {
+          src: '/screenshot-narrow.jpg',
+          sizes: '750x1334',
+          type: 'image/jpeg',
+          form_factor: 'narrow',
+          label: 'Sergio Studio en dispositivo movil'
+        }
+      ],
+      shortcuts: [
+        {
+          name: 'Chat IA',
+          short_name: 'Chat',
+          description: 'Hablar con Sergio IA',
+          url: '/chat',
+          icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }]
+        },
+        {
+          name: 'Editor de Video',
+          short_name: 'Editor',
+          description: 'Editor de video con timeline',
+          url: '/editor',
+          icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }]
+        },
+        {
+          name: 'Studio',
+          short_name: 'Studio',
+          description: 'Panel de creacion de contenido',
+          url: '/studio',
+          icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }]
+        },
+        {
+          name: 'Galeria',
+          short_name: 'Galeria',
+          description: 'Galeria de videos editados',
+          url: '/gallery',
+          icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }]
+        }
+      ],
+      share_target: {
+        action: '/editor',
+        method: 'POST',
+        enctype: 'multipart/form-data',
+        params: {
+          title: 'name',
+          text: 'description',
+          url: 'link',
+          files: [
+            { name: 'media', accept: ['video/*', 'image/*'] }
+          ]
+        }
+      }
+    },
+    workbox: {
+      globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,mp4,webm}'],
+      runtimeCaching: [
+        {
+          urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'google-fonts-cache',
+            expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            cacheableResponse: { statuses: [0, 200] }
+          }
+        },
+        {
+          urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'gstatic-fonts-cache',
+            expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            cacheableResponse: { statuses: [0, 200] }
+          }
+        }
+      ]
+    }
+  })],
   resolve: {
     alias: {
-      '@': path.resolve(import.meta.dirname, './src'),
-      'sergio-demo': path.resolve(import.meta.dirname, demo ? './src/demo/install.ts' : './src/demo/none.ts'),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
-  plugins: [
-    {
-      name: 'sergio-version',
-      apply: 'build',
-      writeBundle(options) {
-        fs.writeFileSync(path.join(options.dir || 'dist', 'version.json'), JSON.stringify({ build: buildId }));
-      },
-    },
-    react(),
-    tailwindcss(),
-    !demo && VitePWA({
-      registerType: 'autoUpdate',
-      manifest: {
-        name: 'Sergio',
-        short_name: 'Sergio',
-        description: 'Su asistente de IA, en su propio equipo',
-        lang: 'es',
-        start_url: '/',
-        scope: '/',
-        theme_color: '#161618',
-        background_color: '#161618',
-        display: 'standalone',
-        orientation: 'any',
-        icons: [
-          { src: 'pwa-192x192.png?v=marca2', sizes: '192x192', type: 'image/png' },
-          { src: 'pwa-512x512.png?v=marca2', sizes: '512x512', type: 'image/png' },
-          { src: 'pwa-512x512.png?v=marca2', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-        ],
-        shortcuts: [
-          { name: 'Chat', short_name: 'Chat', url: '/', icons: [{ src: 'pwa-192x192.png?v=marca2', sizes: '192x192' }] },
-          { name: 'Cowork', short_name: 'Cowork', url: '/cowork', icons: [{ src: 'pwa-192x192.png?v=marca2', sizes: '192x192' }] },
-          {
-            name: 'Pensar a fondo',
-            short_name: 'Pensar',
-            url: '/pensar',
-            icons: [{ src: 'pwa-192x192.png?v=marca2', sizes: '192x192' }],
-          },
-        ],
-      },
-      workbox: {
-        skipWaiting: true,
-        clientsClaim: true,
-        cleanupOutdatedCaches: true,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        // Creator's big studios (3D, design, the code editor) are not part of
-        // every update: they download the first time they are opened and
-        // then stay cached (their file names change when they change).
-        globIgnores: ['**/{CodeStudio,Studio3D,DesignStudio,editor.worker}-*.{js,css}'],
-        navigateFallbackDenylist: [/^\/version\.json/, /^\/v1\//, /^\/health/, /^\/dashboard/, /^\/api\//],
-        // Cache only static assets, never account-authenticated API responses.
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => /\/assets\/(CodeStudio|Studio3D|DesignStudio|editor\.worker)-[\w-]+\.(js|css)$/.test(url.pathname),
-            handler: 'CacheFirst',
-            options: { cacheName: 'sergio-creator', expiration: { maxEntries: 24, maxAgeSeconds: 90 * 86400 } },
-          },
-        ],
-      },
-    }),
-  ],
-  build: {
-    // The tracked static directory also contains the installer portal.
-    // Vite empties its output directory, so default to the ignored build.
-    outDir: demo ? 'dist-demo' : process.env.SERGIO_WEB_OUT || '../src/openjarvis/server/static_local',
-    emptyOutDir: true,
-    // Preserve the Vite 6 browser baseline for existing desktop webviews.
-    target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
-    rolldownOptions: {
-      output: {
-        codeSplitting: {
-          groups: [
-            { name: 'react', test: /node_modules[\\/](react|react-dom)[\\/]/ },
-            {
-              name: 'markdown',
-              test: /node_modules[\\/](react-markdown|rehype-highlight|remark-gfm)[\\/]/,
-            },
-            { name: 'charts', test: /node_modules[\\/]recharts[\\/]/ },
-            { name: 'router', test: /node_modules[\\/]react-router[\\/]/ },
-          ],
-        },
-      },
-    },
-  },
-  server: {
-    port: 5173,
-    proxy: {
-      // ws: true is required for the /v1/agents/events WebSocket. Without it
-      // Vite proxies the HTTP request but not the upgrade, so the socket never
-      // opens — no error, no close event, just silence — and every live agent
-      // view sits empty in dev while working in a production build.
-      '/v1': {
-        target: apiTarget,
-        changeOrigin: true,
-        ws: true,
-      },
-      '/health': apiTarget,
-      '/api': apiTarget,
-    },
-  },
-});
+})
