@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>es</string>
+    <key>CFBundleDisplayName</key>
+    <string>Sergio Studio</string>
+    <key>CFBundleExecutable</key>
+    <string>App</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.sergiostudio.editor</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Sergio Studio</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>UILaunchStoryboardName</key>
+    <string>LaunchScreen</string>
+    <key>UIMainStoryboardFile</key>
+    <string>Main</string>
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>armv7</string>
+    </array>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UIViewControllerBasedStatusBarAppearance</key>
+    <true/>
+    
+    <!-- Permisos de acceso al dispositivo -->
+    <key>NSCameraUsageDescription</key>
+    <string>Sergio Studio necesita acceso a la camara para capturar videos directamente desde la app y aplicar efectos en tiempo real.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Sergio Studio necesita acceso al microfono para grabar audio de alta calidad, agregar voiceovers y sincronizar dialogo.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Sergio Studio necesita acceso a tu galeria para importar fotos y videos para editar, mejorar y crear contenido.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Sergio Studio necesita permiso para guardar videos editados, thumbnails y proyectos en tu galeria.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Sergio Studio escanea la red local para conectar con el backend de procesamiento de video en tu equipo.</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_sergio._tcp</string>
+    </array>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+    </dict>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>audio</string>
+        <string>fetch</string>
+        <string>processing</string>
+    </array>
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>com.sergiostudio.editor.videoprocess</string>
+        <string>com.sergiostudio.editor.sync</string>
+    </array>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.sergiostudio.editor</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>sergiostudio</string>
+            </array>
+        </dict>
+    </array>
+    <key>UIFileSharingEnabled</key>
+    <true/>
+    <key>LSSupportsOpeningDocumentsInPlace</key>
+    <true/>
+</dict>
+</plist>
