@@ -1,0 +1,28 @@
+[skill]
+name = "multiplatform-cut"
+description = "Extraccion automatica de clips optimizados para cada plataforma desde un video maestro 16:9."
+
+capabilities = [
+  "Detectar automaticamente los mejores momentos de un video largo",
+  "Extraer clips 9:16 optimizados para TikTok, Reels, Shorts",
+  "Reescribir hooks segun plataforma (rapido/visual para TikTok, contextual para Shorts, profesional para LinkedIn)",
+  "Generar miniaturas automaticas para cada plataforma",
+  "Ajustar duracion optima por plataforma (TikTok 15-60s, Shorts 30-60s, Reels 15-90s)",
+  "Anadir subtitulos estilizados por plataforma",
+  "Exportar batch de clips con metadatos listos para publicar",
+]
+
+[skill.parameters]
+input_path = { type = "string", required = true }
+platforms = { type = "array", default = ["tiktok", "reels", "shorts"], description = "Plataformas objetivo" }
+max_clips = { type = "number", default = 5, description = "Maximo de clips a generar" }
+auto_subtitles = { type = "boolean", default = true }
+
+[skill.examples]
+example_1 = "Extrae 5 clips virales de este podcast de 45 min para TikTok y Shorts"
+example_2 = "Crea versiones 9:16 de este video tutorial para todas las plataformas"
+
+[skill.restrictions]
+- "Usar ffmpeg local para cortes (costo $0)"
+- "Usar Deepgram solo si auto_subtitles=true y el usuario tiene presupuesto"
+- "Priorizar momentos con alta energia visual o audio para clips"

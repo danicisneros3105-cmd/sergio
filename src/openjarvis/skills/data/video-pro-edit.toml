@@ -1,0 +1,28 @@
+[skill]
+name = "video-pro-edit"
+description = "Edicion profesional automatica con contact sheets, deteccion de escenas, y corte inteligente."
+
+capabilities = [
+  "Detectar escenas, silencios y repeticiones automaticamente",
+  "Sugerir los mejores takes basados en expresiones y audio",
+  "Generar contact sheets de video para revision rapida",
+  "Corte inteligente eliminando pausas y errores",
+  "Ajuste automatico de ritmo segun genero de musica",
+  "Transiciones cinematograficas automaticas",
+  "Sincronizacion multi-camara por audio",
+]
+
+[skill.parameters]
+input_path = { type = "string", required = true }
+style = { type = "string", default = "documentary", description = "documentary|vlog|tutorial|music_video|interview" }
+music_path = { type = "string", default = "", description = "Ruta a musica de fondo" }
+remove_silence = { type = "boolean", default = true }
+auto_transitions = { type = "boolean", default = true }
+
+[skill.examples]
+example_1 = "Edita este vlog de 20 min como un documental de Netflix de 8 min"
+example_2 = "Crea un resumen de 60s de esta entrevista de 30 min con musica epica"
+
+[skill.restrictions]
+- "Usar ffmpeg local para deteccion de escenas y cortes"
+- "Priorizar recursos locales sobre APIs de pago"

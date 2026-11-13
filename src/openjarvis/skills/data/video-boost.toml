@@ -1,0 +1,30 @@
+[skill]
+name = "video-boost"
+description = "Mejora profesional de calidad de video: upscale, denoise, color, estabilizacion, audio."
+
+capabilities = [
+  "Upscale a 1080p/4K/8K con lanczos + unsharp optico",
+  "Reduccion de ruido NLMeans preservando texturas",
+  "Interpolacion de frames 24->60/120fps con flujo optico",
+  "Color grading adaptativo (cinematic, vibrant, muted, warm, cool)",
+  "Estabilizacion digital con 5 modos",
+  "Mejora de audio broadcast/podcast/dialogo",
+  "Restauracion de video antiguo/VHS",
+]
+
+[skill.parameters]
+input_path = { type = "string", required = true }
+mode = { type = "string", default = "full_boost", description = "upscale|interpolate|denoise|stabilize|restore|color|audio_enhance|full_boost" }
+target_resolution = { type = "string", default = "4K" }
+target_fps = { type = "number", default = 60 }
+color_style = { type = "string", default = "cinematic" }
+stabilize_mode = { type = "string", default = "gimbal" }
+audio_preset = { type = "string", default = "broadcast" }
+
+[skill.examples]
+example_1 = "Mejora la calidad de este video grabado con telefono a 4K cinematico"
+example_2 = "Elimina el ruido de este video de noche y estabilizalo"
+
+[skill.restrictions]
+- "Siempre usar ffmpeg local (costo $0)"
+- "Sugerir resoluciones realistas basadas en calidad de entrada"

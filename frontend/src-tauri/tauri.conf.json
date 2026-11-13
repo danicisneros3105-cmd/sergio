@@ -1,65 +1,84 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Sergio",
-  "version": "1.0.1",
-  "identifier": "com.sergio.desktop",
+  "productName": "Sergio Studio",
+  "version": "1.0.0",
+  "identifier": "com.sergiostudio.editor",
   "build": {
-    "frontendDist": "../dist",
-    "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build:tauri"
-  },
-  "app": {
-    "windows": [
-      {
-        "title": "Sergio",
-        "width": 1280,
-        "height": 800,
-        "minWidth": 900,
-        "minHeight": 600,
-        "resizable": true,
-        "fullscreen": false,
-        "decorations": true,
-        "transparent": false
-      }
-    ],
-    "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' http: https: ws: wss:; img-src 'self' data: blob:; media-src 'self' blob:"
-    }
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../src/openjarvis/server/static_local"
   },
   "bundle": {
+    "createUpdaterArtifacts": true,
     "active": true,
+    "category": "Video",
+    "copyright": "2026 Sergio Studio",
     "targets": "all",
-    "createUpdaterArtifacts": false,
+    "externalBin": ["sergio", "openclacky"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
-      "icons/icon.ico",
-      "icons/icon.png"
+      "icons/icon.ico"
     ],
-    "category": "Utility",
-    "shortDescription": "Sergio, asistente de escritorio",
-    "longDescription": "Sergio es un asistente de escritorio basado en OpenJarvis.",
     "macOS": {
       "entitlements": "Entitlements.plist",
-      "minimumSystemVersion": "10.15",
+      "exceptionDomain": "",
       "frameworks": [],
       "providerShortName": null,
-      "signingIdentity": "-"
+      "signingIdentity": null
     },
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": "http://timestamp.digicert.com"
+      "timestampUrl": ""
     }
   },
-  "plugins": {
-    "deep-link": {
-      "desktop": {
-        "schemes": ["openjarvis"]
+  "app": {
+    "security": {
+      "csp": null,
+      "capabilities": ["desktop-capability", "mobile-capability", "main-capability"]
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "height": 780,
+        "resizable": true,
+        "title": "Sergio Studio",
+        "width": 1200,
+        "minWidth": 375,
+        "minHeight": 667
       }
+    ]
+  },
+  "plugins": {
+    "fs": {
+      "scope": ["**", "$APPDATA/**", "$DOCUMENT/**", "$DOWNLOAD/**", "$PICTURE/**", "$VIDEO/**", "$DESKTOP/**", "$HOME/**"]
+    },
+    "dialog": {},
+    "shell": {
+      "open": true,
+      "scope": [
+        {"name": "blender", "cmd": "blender", "args": true},
+        {"name": "ffmpeg", "cmd": "ffmpeg", "args": true},
+        {"name": "ffprobe", "cmd": "ffprobe", "args": true},
+        {"name": "open", "cmd": "open", "args": true},
+        {"name": "xdg-open", "cmd": "xdg-open", "args": true}
+      ]
+    },
+    "upload": {},
+    "clipboard-manager": {},
+    "global-shortcut": {},
+    "notification": {},
+    "os": {},
+    "process": {},
+    "updater": {
+      "active": true,
+      "endpoints": ["https://api.github.com/repos/danicisneros3105-cmd/sergio/releases/latest"],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ5NEMzM0E0ODAwQjAzNDEKUldRbUtvK2t6c2x1R3Z0N2Z6ZmRXaGZnK1VQVWZMc2ZFNzJFZ0d5Rm5rMDZIbHh4RGZzM3I1dXgK"
     }
   }
 }

@@ -1,0 +1,29 @@
+[skill]
+name = "video-voiceover-dub"
+description = "Voiceover profesional y doblaje neuronal con clonacion de voz, lip-sync y preservacion de timbre."
+
+capabilities = [
+  "Clonacion de voz local con 30s de muestra (Kokoro, gratis)",
+  "Voiceover premium con ElevenLabs (con API incluida)",
+  "Sincronizacion labial automatica (lip-sync) en cualquier idioma",
+  "Doblaje neuronal: traduce y dobla manteniendo timbre original",
+  "Generacion de subtitulos estilizados",
+  "Mezcla automatica musica/voz (ducking inteligente)",
+  "Generacion de SFX basados en movimiento en pantalla",
+]
+
+[skill.parameters]
+input_path = { type = "string", required = true }
+action = { type = "string", default = "voiceover", description = "voiceover|dub|lip_sync|subtitles|sfx" }
+language = { type = "string", default = "es" }
+voice_sample = { type = "string", default = "", description = "Ruta a muestra de voz para clonacion" }
+text = { type = "string", default = "", description = "Texto para voiceover" }
+
+[skill.examples]
+example_1 = "Genera voiceover en espanol para este video usando mi voz clonada"
+example_2 = "Dobla este video al ingles manteniendo mi timbre de voz original"
+
+[skill.restrictions]
+- "Usar Kokoro local primero (costo $0)"
+- "ElevenLabs solo para usuarios Pro/Studio o cuando se requiere calidad premium"
+- "Deepgram STT solo cuando auto-generar subtitulos"

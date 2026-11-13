@@ -1,0 +1,31 @@
+[skill]
+name = "imax-boost"
+description = "Pipeline IMAX completo en un solo paso: HDR, upscale, denoise, color, estabilizacion, audio broadcast."
+
+capabilities = [
+  "Aplicar pipeline cinematografico completo a cualquier video",
+  "Upscale a 4K/8K con super-resolucion neuronal",
+  "Interpolacion de frames 24->60/120fps con flujo optico",
+  "HDR temporal recuperando highlights y sombras",
+  "Color grading adaptativo por zonas (6 estilos)",
+  "Estabilizacion nivel gimbal",
+  "Audio broadcast EBU R128 con compresion multibanda",
+  "Codificacion HEVC optimizada",
+]
+
+[skill.parameters]
+input_path = { type = "string", required = true }
+output_path = { type = "string", required = false }
+target_resolution = { type = "string", default = "4K" }
+target_fps = { type = "number", default = 60 }
+color_style = { type = "string", default = "cinematic" }
+stabilize_mode = { type = "string", default = "gimbal" }
+audio_preset = { type = "string", default = "imax" }
+
+[skill.examples]
+example_1 = "Boostea mi video a 4K 60fps con color cinematico y audio IMAX"
+example_2 = "Aplica pipeline IMAX completo a este vlog de 5 minutos"
+
+[skill.restrictions]
+- "Priorizar ffmpeg local (costo $0)"
+- "Si el video es >10 min, sugerir modo 'full_boost' en lugar de 'imax' para velocidad"
