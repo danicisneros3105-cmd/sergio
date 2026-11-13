@@ -1,0 +1,22 @@
+/* ── Shell Toolbar ── */
+.shell-toolbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 20px; height: 44px;
+  background: var(--bg-panel); border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.shell-logo {
+  font-weight: 800; font-size: 13px; letter-spacing: 2px;
+  color: var(--accent); text-decoration: none;
+}
+.shell-links {
+  display: flex; gap: 2px;
+}
+.shell-link {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: var(--radius-sm);
+  color: var(--text-muted); font-size: 12px; font-weight: 500;
+  text-decoration: none; transition: all .15s;
+}
+.shell-link:hover { color: var(--text); background: var(--bg-elevated); }
+.shell-link.active { color: var(--accent); background: var(--accent-dim); }
