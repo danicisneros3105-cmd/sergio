@@ -1,187 +1,162 @@
-import { lazy, Suspense, useEffect } from "react";
-import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { useEffectOnce } from "usehooks-ts";
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router';
+import { Toaster } from 'sonner';
+import './App.css';
 
-import { ProtectedRoute } from "./components/Auth/ProtectedRoute";
-import Layout from "./components/Layout";
-import { Onboarding } from "./components/Onboarding";
-import { PrivateShell } from "./components/Shell/PrivateShell";
-import { PublicShell } from "./components/Shell/PublicShell";
-import { useTheme } from "./hooks/useTheme";
-import AgentsPage from "./pages/AgentsPage";
-import ChatPage from "./pages/ChatPage";
-import ConnectomePage from "./pages/ConnectomePage";
-import DataSourcesPage from "./pages/DataSourcesPage";
-import DebugPage from "./pages/DebugPage";
-import ExtensionPage from "./pages/ExtensionPage";
-import ExtensionsPage from "./pages/ExtensionsPage";
-import FacesPage from "./pages/FacesPage";
-import GalleryPage from "./pages/GalleryPage";
-import GetStartedPage from "./pages/GetStartedPage";
-import HelpPage from "./pages/HelpPage";
-import { HomePage } from "./pages/HomePage";
-import { LandingPage } from "./pages/LandingPage";
-import LogsPage from "./pages/LogsPage";
-import MeetingPage from "./pages/MeetingPage";
-import NodesPage from "./pages/NodesPage";
-import OrganizerPage from "./pages/OrganizerPage";
-import PayPage from "./pages/PayPage";
-import PlansPage from "./pages/PlansPage";
-import ProfilePage from "./pages/ProfilePage";
-import ProjectsPage from "./pages/ProjectsPage";
-import SettingsPage from "./pages/SettingsPage";
-import WorkspacePage from "./pages/WorkspacePage";
-import { useAuthStore } from "./stores/auth";
-import { useConfigStore } from "./stores/config";
-import { useGlobalStore } from "./stores/global";
-import { isPublicPage } from "./utils/public";
+import ChatPage from './pages/ChatPage';
+const SetupPage = lazy(() => import('./pages/SetupPage'));
+const EditorPage = lazy(() => import('./pages/EditorPage'));
+const PlansPage = lazy(() => import('./pages/PlansPage'));
+const UsagePage = lazy(() => import('./pages/UsagePage'));
+const HelpPage = lazy(() => import('./pages/HelpPage'));
+const LicensePage = lazy(() => import('./pages/LicensePage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const CreatorPage = lazy(() => import('./pages/CreatorPage'));
+const GalleryPage = lazy(() => import('./pages/GalleryPage'));
+const PayPage = lazy(() => import('./pages/PayPage'));
+const OrgPage = lazy(() => import('./pages/OrgPage'));
+const ReportPage = lazy(() => import('./pages/ReportPage'));
 
-const AutomatizarPage = lazy(() => import("./pages/AutomatizarPage"));
-const SwarmPage = lazy(() => import("./pages/SwarmPage"));
-const ExtensionsPage = lazy(() => import("./pages/ExtensionsPage"));
-const CreatorPage = lazy(() => import("./pages/CreatorPage").then((m) => ({ default: m.CreatorPage })));
-const HealthPage = lazy(() => import("./pages/HealthPage"));
-const CapturePage = lazy(() => import("./pages/CapturePage"));
-const CoworkPage = lazy(() => import("./pages/CoworkPage"));
+import { Toolbar } from './components/Shell/Toolbar';
+import { apiFetch } from './lib/api';
+import { lazy, Suspense } from 'react';
 
-function ScrollToTop() {
-  const { pathname } = useLocation();
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
-  return null;
+const RELOAD_KEY = 'sergio-reload';
+const RELOAD_GRACE_MS = 5000;
+
+function reloadIfVersionMismatch() {
+  try {
+    const remoteBuild = (import.meta as any).env.VITE_BUILD_ID ?? '';
+    const localBuild = sessionStorage.getItem('sergio.build');
+    if (!localBuild) {
+      sessionStorage.setItem('sergio.build', remoteBuild);
+      return;
+    }
+    if (remoteBuild && localBuild !== remoteBuild) {
+      sessionStorage.setItem('sergio.build', remoteBuild);
+      if (!sessionStorage.getItem(RELOAD_KEY)) {
+        sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+        location.reload();
+      }
+    }
+  } catch {}
 }
 
-function PublicRouteGuard({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuthStore();
+function clearStaleReload() {
+  try {
+    const ts = Number(sessionStorage.getItem(RELOAD_KEY) || '0');
+    if (Date.now() - ts > RELOAD_GRACE_MS) sessionStorage.removeItem(RELOAD_KEY);
+  } catch {}
+}
+
+function AppRoutes() {
   const location = useLocation();
   const navigate = useNavigate();
+  const licenseDismissed = useRef(false);
+  const [licenseNeeded, setLicenseNeeded] = useState(false);
+  const [alive, setAlive] = useState(true);
+  const [checking, setChecking] = useState(true);
+
+  const showShell = useMemo(() => {
+    const noShell = ['/setup', '/about', '/license'];
+    return !noShell.includes(location.pathname) && !location.pathname.startsWith('/pagar');
+  }, [location.pathname]);
 
   useEffect(() => {
-    if (loading) return;
-    if (user && isPublicPage(location.pathname)) {
-      navigate("/chat", { replace: true });
-    }
-  }, [user, loading, location.pathname, navigate]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white" />
-      </div>
-    );
-  }
-
-  return <>{children}</>;
-}
-
-function AppContent() {
-  const { user } = useAuthStore();
-  const { config } = useConfigStore();
-  const { theme } = useTheme();
+    reloadIfVersionMismatch();
+  }, []);
 
   useEffect(() => {
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, [theme]);
+    const t = setInterval(clearStaleReload, 2000);
+    return () => clearInterval(t);
+  }, []);
 
-  const onboardingCompleted =
-    user?.onboarding_completed ?? config?.onboarding_completed ?? true;
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch('/v1/health')
+      .then((r) => {
+        if (cancelled) return;
+        setAlive(r.ok);
+        setChecking(false);
+        if (r.status === 403) {
+          try { localStorage.setItem('sergio.license_needed', '1'); } catch {}
+          setLicenseNeeded(true);
+        } else {
+          setLicenseNeeded(false);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAlive(false);
+        setChecking(false);
+      });
+    return () => { cancelled = true; };
+  }, [location.pathname]);
 
-  if (!user) {
-    return (
-      <PublicShell>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="get-started" element={<GetStartedPage />} />
-          <Route path="planes" element={<PlansPage />} />
-          <Route path="pagar" element={<PayPage />} />
-          <Route path="pagar/:estado" element={<PayPage />} />
-          <Route path="ayuda" element={<HelpPage />} />
-          <Route path="debug" element={<DebugPage />} />
-          <Route path="*" element={<LandingPage />} />
-        </Routes>
-      </PublicShell>
-    );
-  }
-
-  if (!onboardingCompleted) {
-    return (
-      <Layout>
-        <Onboarding />
-      </Layout>
-    );
-  }
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('sergio.license_needed') === '1' && !licenseDismissed.current) {
+        setLicenseNeeded(true);
+      }
+    } catch {}
+  }, []);
 
   return (
-    <PrivateShell>
-      <Suspense fallback={<div className="p-8 text-center">Cargando…</div>}>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="chat" element={<ChatPage />} />
-          <Route path="creator/*" element={<CreatorPage />} />
-          <Route path="editor" element={<CreatorPage />} />
-          <Route path="galeria" element={<GalleryPage />} />
-          <Route path="proyectos" element={<ProjectsPage />} />
-          <Route path="nodes" element={<NodesPage />} />
-          <Route path="nodes/:id" element={<NodesPage />} />
-          <Route path="swarm" element={<SwarmPage />} />
-          <Route path="swarm/:id" element={<SwarmPage />} />
-          <Route path="workspace" element={<OrganizerPage />} />
-          <Route path="workspace/:id" element={<WorkspacePage />} />
-          <Route path="capturar" element={<CapturePage />} />
-          <Route path="reunion" element={<MeetingPage />} />
-          <Route path="dashboard" element={<Navigate to="/settings?tab=cuenta" replace />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="get-started" element={<GetStartedPage />} />
-          <Route path="data-sources" element={<DataSourcesPage />} />
-          <Route path="agents" element={<Navigate to="/nodes" replace />} />
-          <Route path="planes" element={<PlansPage />} />
-          <Route path="pagar" element={<PayPage />} />
-          <Route path="pagar/:estado" element={<PayPage />} />
-          <Route path="ayuda" element={<HelpPage />} />
-          <Route path="logs" element={<LogsPage />} />
-          <Route path="clacky" element={<ExtensionPage name="clacky" />} />
-          <Route path="faces" element={<FacesPage />} />
-          <Route path="extensiones" element={<ExtensionsPage />} />
-          <Route path="extensiones/:tab" element={<ExtensionsPage />} />
-          <Route path="studio" element={<Navigate to="/extensiones" replace />} />
-          <Route path="developer" element={<Navigate to="/extensiones" replace />} />
-          <Route path="pensar" element={<Navigate to="/chat" replace />} />
-          <Route path="cowork" element={<CoworkPage />} />
-          <Route path="automatizar" element={<AutomatizarPage />} />
-          <Route path="salud" element={<HealthPage />} />
-          <Route path="perfil" element={<ProfilePage />} />
-          <Route path="atajos" element={<ConnectomePage />} />
-          <Route path="uso" element={<Navigate to="/settings?tab=cuenta" replace />} />
-          <Route path="cerebro" element={<ConnectomePage />} />
-          <Route path="debug" element={<DebugPage />} />
-          <Route path="*" element={<HomePage />} />
-        </Routes>
-      </Suspense>
-    </PrivateShell>
+    <div className="app-shell">
+      {showShell && <Toolbar />}
+      <main className="app-main">
+        <Suspense fallback={<div className="app-loading">Cargando…</div>}>
+          <Routes>
+            <Route path="setup" element={<SetupPage />} />
+            <Route path="editor" element={<CreatorPage />} />
+            <Route path="creator/*" element={<CreatorPage />} />
+            <Route path="planes" element={<PlansPage />} />
+            <Route path="uso" element={<UsagePage />} />
+            <Route path="ayuda" element={<HelpPage />} />
+            <Route path="about" element={<AboutPage />} />
+            <Route path="license" element={<LicensePage />} />
+            <Route path="galeria" element={<GalleryPage />} />
+            <Route path="pagar" element={<PayPage />} />
+            <Route path="org/*" element={<OrgPage />} />
+            <Route path="reporte" element={<ReportPage />} />
+            <Route index element={<Navigate to="/editor" replace />} />
+            <Route path="*" element={<div className="page-center"><h2>Pagina no encontrada</h2><p>Volviendo al inicio…</p></div>} />
+          </Routes>
+        </Suspense>
+      </main>
+
+      {licenseNeeded && !licenseDismissed.current && (
+        <div className="license-toast">
+          <span>Es posible que necesites una licencia para usar Sergio en este servidor.</span>
+          <button onClick={() => navigate('/license')}>Ver licencia</button>
+          <button onClick={() => { licenseDismissed.current = true; setLicenseNeeded(false); }}>Descartar</button>
+        </div>
+      )}
+
+      {!checking && !alive && (
+        <div className="offline-banner">
+          <span>Sergio parece estar fuera de linea. Algunas funciones no estaran disponibles.</span>
+          <button onClick={() => location.reload()}>Reintentar</button>
+        </div>
+      )}
+
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: { background: '#1e1e2e', color: '#e4e4e7', border: '1px solid #27273a' },
+        }}
+      />
+    </div>
   );
 }
 
-export default function App() {
-  const { checkAuth } = useAuthStore();
-  const { fetchConfig } = useConfigStore();
-  const { isPaused, resume } = useGlobalStore();
-
-  useEffectOnce(() => {
-    checkAuth();
-    fetchConfig();
-  });
-
+function App() {
   return (
-    <>
-      <ScrollToTop />
-      <PublicRouteGuard>
-        <AppContent />
-      </PublicRouteGuard>
-    </>
+    <Routes>
+      <Route path="chat/*" element={<ChatPage />} />
+      <Route path="*" element={<AppRoutes />} />
+    </Routes>
   );
 }
+
+export default App;
