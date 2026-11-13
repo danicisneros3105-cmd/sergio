@@ -1,215 +1,61 @@
-.plans-tabs { display:flex; gap:4px; margin-bottom:16px; border-bottom:1px solid #27273a; padding-bottom:4px; }
-.paper-tab { background:transparent; border:none; color:#a1a1aa; padding:8px 14px; border-radius:6px; cursor:pointer; font-size:13px; }
-.paper-tab:hover { background:#1e1e2e; color:#fff; }
-.paper-tab[aria-selected="true"] { color:#e8b86d; background:#e8b86d15; }
+/* ── Plans Page ── elegante, no invasivo ── */
 
-.plans-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-top:16px; }
-.plan-card { background:#12121a; border:1px solid #27273a; border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:10px; }
-.plan-card[data-current="true"] { border-color:#e8b86d60; }
-.plan-card h2 { font-size:16px; display:flex; align-items:center; gap:8px; margin:0; }
-.plan-card h2 small { font-size:11px; color:#e8b86d; background:#e8b86d15; padding:2px 8px; border-radius:8px; margin-left:auto; }
-.plan-price { font-size:28px; font-weight:800; }
-.plan-price small { font-size:14px; color:#71717a; font-weight:400; }
-.plan-capacity { display:flex; align-items:baseline; gap:6px; font-size:13px; }
-.plan-capacity strong { font-size:20px; color:#e8b86d; }
-.plan-range { display:flex; flex-direction:column; gap:6px; font-size:12px; color:#a1a1aa; }
-.plan-range input { accent-color:#e8b86d; }
-.plan-card ul { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px; font-size:13px; color:#a1a1aa; }
-.plan-card ul li::before { content:"✓"; color:#00f5d4; margin-right:8px; }
-.plan-card button { margin-top:auto; }
+.plans-root { flex: 1; overflow-y: auto; padding: 32px; background: var(--bg); }
+.plans-tabs {
+  display: flex; gap: 2px; justify-content: center; margin-bottom: 28px;
+  background: var(--bg-panel); border-radius: var(--radius); padding: 4px; width: fit-content; margin-left: auto; margin-right: auto;
+}
+.plans-tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 18px; border-radius: var(--radius-sm); background: transparent;
+  border: none; color: var(--text-muted); font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all .15s;
+}
+.plans-tab:hover { color: var(--text); }
+.plans-tab.active { background: var(--accent-dim); color: var(--accent); }
 
-.plans-bar { display:flex; align-items:center; gap:12px; margin:12px 0; }
-.plans-bar label { display:flex; align-items:center; gap:8px; font-size:13px; }
-.plans-note { font-size:12px; color:#71717a; margin-top:16px; }
+.plans-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 900px; margin: 0 auto; }
+.plan-card {
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 24px; position: relative; transition: all .2s;
+}
+.plan-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+.plan-card.highlight { border-color: var(--accent); background: linear-gradient(180deg, var(--bg-panel) 0%, rgba(212,168,83,0.04) 100%); }
+.plan-badge {
+  position: absolute; top: -1px; right: 20px;
+  background: var(--accent); color: #0a0a0f; font-size: 9px; font-weight: 700;
+  padding: 3px 10px; border-radius: 0 0 4px 4px; letter-spacing: 0.5px;
+}
+.plan-card h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+.plan-price { margin-bottom: 10px; }
+.plan-currency { font-size: 18px; color: var(--accent); font-weight: 600; vertical-align: top; }
+.plan-amount { font-size: 36px; font-weight: 700; color: var(--text); }
+.plan-period { font-size: 13px; color: var(--text-muted); }
+.plan-meta { display: flex; gap: 12px; font-size: 11px; color: var(--text-muted); margin-bottom: 14px; }
+.plan-meta span { display: flex; align-items: center; gap: 4px; }
+.plan-features { list-style: none; padding: 0; margin: 0 0 16px; }
+.plan-features li { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); margin-bottom: 7px; }
+.plan-features li svg { color: var(--accent); flex-shrink: 0; }
+.plan-cta {
+  width: 100%; padding: 10px; border-radius: var(--radius-sm);
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text-muted); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all .2s;
+}
+.plan-cta:hover { border-color: var(--accent); color: var(--accent); }
+.plan-cta.primary { background: var(--accent); color: #0a0a0f; border-color: var(--accent); }
+.plan-cta.primary:hover { filter: brightness(1.1); }
 
-.plans-rows { display:flex; flex-direction:column; gap:8px; }
-.plans-rows > div { display:flex; justify-content:space-between; font-size:13px; padding:8px 0; border-bottom:1px solid #1e1e2e; }
-.plans-rows > div span:first-child { color:#a1a1aa; }
-.plans-key { display:flex; gap:8px; margin-top:8px; }
-.plans-key input { flex:1; }
-
-.license-toast { position:fixed; bottom:16px; right:16px; background:#12121a; border:1px solid #27273a; border-radius:12px; padding:14px 18px; display:flex; align-items:center; gap:12px; font-size:13px; z-index:100; }
-.license-toast button { background:#e8b86d20; border:1px solid #e8b86d40; color:#e8b86d; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; }
-.offline-banner { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:#12121a; border:1px solid #27273a; border-radius:12px; padding:10px 18px; display:flex; align-items:center; gap:12px; font-size:12px; color:#a1a1aa; z-index:100; }
-
-.meter { margin-bottom:10px; }
-.meter-top { display:flex; justify-content:space-between; font-size:12px; color:#a1a1aa; margin-bottom:4px; }
-.meter-bar { height:8px; background:#1e1e2e; border-radius:4px; overflow:hidden; }
-.meter-bar i { display:block; height:100%; background:linear-gradient(90deg, #e8b86d, #d4a853); border-radius:4px; transition:width 0.3s; }
-
-.commerce-hero { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:24px; background:linear-gradient(135deg, #0f0f1a, #1a1a2e); border-radius:16px; margin-bottom:16px; border:1px solid #27273a; }
-.commerce-hero h2 { font-size:22px; margin:0 0 8px; }
-.commerce-hero p { font-size:13px; color:#a1a1aa; margin:0; }
-.commerce-kicker { font-size:11px; color:#e8b86d; text-transform:uppercase; letter-spacing:1px; }
-.commerce-ring { width:80px; height:80px; border-radius:50%; background:conic-gradient(from 0deg, #e8b86d, #00f5d4, #ff6b9d, #e8b86d); opacity:0.15; flex-shrink:0; }
-
-@media (max-width: 430px) { .commerce-ring { align-self: start; } .pay-method { gap: 8px; padding-inline: 10px; } }
-
-/* ============================================================
-   Psychological Pricing Effects — FOMO, Decoy, Scarcity, Streaks
-   ============================================================ */
-
-/* FOMO Timer */
-.plans-fomo-timer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(135deg, #ff6b3515, #ff950015);
-  border: 1px solid #ff6b3530;
-  border-radius: 10px;
-  padding: 10px 16px;
-  margin: 12px 0;
-  font-size: 13px;
-  color: #ff6b35;
+.earnings-table, .comp-table { max-width: 900px; margin: 0 auto; }
+.earnings-table table, .comp-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.earnings-table th, .comp-table th {
+  text-align: left; padding: 10px 12px; color: var(--text-muted); font-weight: 500;
+  border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.5px; font-size: 10px;
 }
-.plans-fomo-timer b {
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.05em;
-}
-
-/* Social Proof */
-.plans-social-proof {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #00f5d4;
-  margin-bottom: 12px;
-}
-.plans-live-dot {
-  width: 6px;
-  height: 6px;
-  background: #00f5d4;
-  border-radius: 50%;
-  animation: pulse-live 2s infinite;
-}
-@keyframes pulse-live {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-/* Streak Banner */
-.plans-streak {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: linear-gradient(135deg, #e8b86d15, #ff6b3510);
-  border: 1px solid #e8b86d30;
-  border-radius: 10px;
-  padding: 12px 16px;
-  margin: 12px 0;
-}
-.plans-streak svg {
-  color: #ff6b35;
-  flex-shrink: 0;
-}
-.plans-streak b {
-  display: block;
-  font-size: 13px;
-  color: #e8b86d;
-}
-.plans-streak span {
-  font-size: 12px;
-  color: #a1a1aa;
-}
-
-/* Decoy / Popular Badge */
-.plan-badge-popular {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: linear-gradient(135deg, #e8b86d, #d4a853);
-  color: #0a0a0f;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 8px;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.plan-badge-fomo {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: #ff6b3530;
-  color: #ff6b35;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 8px;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-/* Decoy plan highlight */
-.plan-card[data-decoy='true'] {
-  border-color: #e8b86d60;
-  box-shadow: 0 0 0 1px #e8b86d20, 0 8px 24px rgba(232, 184, 109, 0.08);
-  position: relative;
-  transform: scale(1.02);
-}
-.plan-card[data-decoy='true']::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #e8b86d, #d4a853);
-  border-radius: 16px 16px 0 0;
-}
-
-/* Price strikethrough for FOMO */
-.plan-price-old {
-  text-decoration: line-through;
-  color: #71717a;
-  font-size: 18px;
-  margin-right: 8px;
-}
-.plan-price-new {
-  color: #e8b86d;
-  font-size: 28px;
-}
-
-/* Decoy button */
-.decoy-btn {
-  background: linear-gradient(135deg, #e8b86d, #d4a853) !important;
-  color: #0a0a0f !important;
-  font-weight: 700 !important;
-}
-
-/* FOMO Footer */
-.plans-fomo-footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-top: 20px;
-  padding: 14px 16px;
-  background: #1a1a2e;
-  border: 1px solid #27273a;
-  border-radius: 10px;
-}
-.plans-fomo-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #a1a1aa;
-}
-.plans-fomo-item b {
-  color: #e8b86d;
-}
-
-/* Video hero */
-.video-hero {
-  background: linear-gradient(135deg, #0f0f1a, #1a1a2e) !important;
-  border: 1px solid #27273a;
-}
-.video-hero h2 {
-  color: #fff !important;
-}
-.video-hero .commerce-kicker {
-  color: #e8b86d !important;
-}
+.earnings-table td, .comp-table td { padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); }
+.earnings-table tr:hover, .comp-table tr:hover { background: var(--bg-elevated); }
+.earn-plan { color: var(--text); font-weight: 600; }
+.earn-rev { color: var(--accent); font-weight: 600; }
+.earn-note { text-align: center; font-size: 10px; color: var(--text-muted); margin-top: 16px; }
+.sergio-row td { color: var(--text); }
+.sergio-row strong { color: var(--accent); }
