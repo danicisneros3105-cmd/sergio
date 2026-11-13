@@ -2,13 +2,42 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>NSAppTransportSecurity</key>
-  <dict>
-    <!-- The desktop API URL is user-configurable, so it cannot be represented
-         by Tauri's single, build-time exceptionDomain setting. Keep this
-         exception scoped to WKWebView; native URLSession traffic retains ATS. -->
-    <key>NSAllowsArbitraryLoadsInWebContent</key>
-    <true/>
-  </dict>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.sergiostudio.desktop</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>sergiostudio</string>
+            </array>
+        </dict>
+    </array>
+    <key>NSCameraUsageDescription</key>
+    <string>Sergio Studio necesita acceso a la camara para capturar videos y aplicar efectos en tiempo real.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Sergio Studio necesita acceso al microfono para grabar audio de alta calidad y agregar voiceovers.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Sergio Studio necesita acceso a tu galeria para importar fotos y videos para editar.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Sergio Studio usa Apple Events para automatizar tareas con otras aplicaciones como Blender, Final Cut Pro y Premiere.</string>
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>Sergio Studio necesita acceso al escritorio para guardar y leer archivos de video.</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>Sergio Studio necesita acceso a tus documentos para gestionar proyectos de video.</string>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>Sergio Studio necesita acceso a la carpeta de descargas para importar footage.</string>
+    <key>NSRemovableVolumesUsageDescription</key>
+    <string>Sergio Studio necesita acceso a discos externos para importar y exportar proyectos de video.</string>
+    <key>NSNetworkVolumesUsageDescription</key>
+    <string>Sergio Studio necesita acceso a volumenes de red para colaborar en proyectos compartidos.</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.video</string>
+    <key>LSBackgroundOnly</key>
+    <false/>
+    <key>LSUIElement</key>
+    <false/>
+    <key>NSRequiresAquaSystemAppearance</key>
+    <false/>
 </dict>
 </plist>
