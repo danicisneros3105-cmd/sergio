@@ -1,100 +1,215 @@
-.plans-tabs { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; margin: 0 0 24px; }
-.plans-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin: 0 0 16px; }
-.plans-bar label { display: inline-flex; gap: 8px; align-items: center; font-size: 13.5px; color: var(--color-text-secondary); }
-.plans-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
-.plan-card { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--color-border); border-radius: 16px; padding: 18px; background: var(--color-surface); }
-.plan-card[data-current='true'] { border-color: var(--color-text); box-shadow: inset 0 0 0 1px var(--color-text); }
-.plan-card h2 { margin: 0; font-size: 17px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.plan-card h2 small { font-size: 11.5px; font-weight: 500; color: var(--color-text-secondary); }
-.plan-price { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
-.plan-price small { font-size: 13px; font-weight: 400; color: var(--color-text-secondary); }
-.plan-card p { margin: 0; font-size: 13.5px; color: var(--color-text-secondary); }
-.plan-card ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; align-content: start; font-size: 13.5px; flex: 1; }
-.plan-card li::before { content: '–'; margin-right: 8px; color: var(--color-text-secondary); }
-.plan-card input[type='range'] { width: 100%; accent-color: var(--color-text); }
-.plan-card .plan-range { display: grid; gap: 4px; font-size: 12.5px; color: var(--color-text-secondary); }
-.plans-note { font-size: 12.5px; color: var(--color-text-secondary); margin: 14px 0 0; }
-.meter { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid var(--color-border); }
-.meter-top { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
-.meter-top span:last-child { font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
-.meter-bar { height: 6px; border-radius: 3px; background: var(--color-bg-tertiary); overflow: hidden; }
-.meter-bar i { display: block; height: 100%; background: var(--color-text); border-radius: 3px; }
-.plans-rows { display: grid; }
-.plans-rows > div { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-top: 1px solid var(--color-border); font-size: 14px; }
-.plans-rows > div span:first-child { color: var(--color-text-secondary); }
-.plans-rows > div span:last-child { text-align: right; overflow-wrap: anywhere; }
-.plans-key { display: flex; gap: 8px; flex-wrap: wrap; }
-.plans-key input { flex: 1; min-width: 200px; }
-.help-list { display: grid; gap: 4px; }
-.help-list details { border-top: 1px solid var(--color-border); padding: 12px 0; }
-.help-list summary { cursor: pointer; font-weight: 500; font-size: 14.5px; }
-.help-list p, .help-list li { font-size: 14px; color: var(--color-text-secondary); line-height: 1.55; }
-.help-list kbd { font: 12px ui-monospace, Menlo, Consolas, monospace; border: 1px solid var(--color-border); border-radius: 5px; padding: 1px 6px; color: var(--color-text); }
-@media (max-width: 640px) { .plans-bar { justify-content: center; } }
-.plans-note + .paper-label, .plans-rows + .paper-label { margin-top: 22px; }
+.plans-tabs { display:flex; gap:4px; margin-bottom:16px; border-bottom:1px solid #27273a; padding-bottom:4px; }
+.paper-tab { background:transparent; border:none; color:#a1a1aa; padding:8px 14px; border-radius:6px; cursor:pointer; font-size:13px; }
+.paper-tab:hover { background:#1e1e2e; color:#fff; }
+.paper-tab[aria-selected="true"] { color:#e8b86d; background:#e8b86d15; }
 
-/* Créditos (plans/CreditsPanel.tsx): three packs side by side, the price in sight. */
-.credits { display: grid; gap: 10px; margin-top: 24px; }
-.credits-packs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
-.credits-pack { display: grid; justify-items: center; gap: 2px; padding: 16px 12px; border-radius: 16px; background: var(--color-surface); border: 1px solid var(--color-border); }
-.credits-n { font-family: var(--font-title, inherit); font-size: 28px; font-weight: 600; color: var(--color-text); }
-.credits-label { font-size: 12.5px; color: var(--color-text-secondary); }
-.credits-price { margin: 6px 0 8px; font-size: 16px; font-weight: 600; color: var(--color-text); }
+.plans-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px; margin-top:16px; }
+.plan-card { background:#12121a; border:1px solid #27273a; border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:10px; }
+.plan-card[data-current="true"] { border-color:#e8b86d60; }
+.plan-card h2 { font-size:16px; display:flex; align-items:center; gap:8px; margin:0; }
+.plan-card h2 small { font-size:11px; color:#e8b86d; background:#e8b86d15; padding:2px 8px; border-radius:8px; margin-left:auto; }
+.plan-price { font-size:28px; font-weight:800; }
+.plan-price small { font-size:14px; color:#71717a; font-weight:400; }
+.plan-capacity { display:flex; align-items:baseline; gap:6px; font-size:13px; }
+.plan-capacity strong { font-size:20px; color:#e8b86d; }
+.plan-range { display:flex; flex-direction:column; gap:6px; font-size:12px; color:#a1a1aa; }
+.plan-range input { accent-color:#e8b86d; }
+.plan-card ul { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px; font-size:13px; color:#a1a1aa; }
+.plan-card ul li::before { content:"✓"; color:#00f5d4; margin-right:8px; }
+.plan-card button { margin-top:auto; }
 
-/* Sergio Pagos (PayPage.tsx, plans/PagosPanel.tsx): one white card, the ways to pay as rows. */
-.pay-box { display: grid; gap: 14px; max-width: 520px; margin: 0 auto; }
-.pay-summary { padding: 20px; border-radius: 18px; background: var(--color-surface); border: 1px solid var(--color-border); }
-.pay-summary h2 { margin: 0 0 6px; font-family: var(--font-title, inherit); }
-.pay-summary ul { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 14px; }
-.pay-summary li::before { content: '–'; margin-right: 8px; color: var(--color-text-secondary); }
-.pay-methods { display: grid; gap: 10px; }
-.pay-method { display: grid; gap: 2px; text-align: left; padding: 14px 16px; border-radius: 14px; background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text); cursor: pointer; }
-.pay-method strong { color: var(--color-accent); font-size: 15px; }
-.pay-method span { font-size: 12.5px; color: var(--color-text-secondary); }
-.pay-method:hover:not(:disabled) { border-color: var(--color-accent); }
-.pay-method:disabled { opacity: 0.55; cursor: default; }
-.pay-problem { margin: 0; font-size: 14px; color: var(--color-text); }
-.pagos-panel { margin-top: 24px; display: grid; gap: 8px; }
-.pay-mode { margin: 0; font-size: 13px; color: var(--color-text-secondary); text-align: center; }
-.pay-receipt { margin-top: 4px; }
-.pagos-steps { display: grid; gap: 8px; padding: 14px 16px; border-radius: 16px; background: var(--color-surface); border: 1px solid var(--color-border); }
-.pagos-step { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; font-size: 14px; }
-.pagos-step > span { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 12px; font-weight: 700; color: #fff; background: #34c759; }
-.pagos-step[data-ok='false'] > span { background: #ff9500; }
-.pagos-step strong { display: block; font-weight: 500; }
-.pagos-step small { color: var(--color-text-secondary); overflow-wrap: anywhere; }
-.pagos-step code { font-size: 12px; }
-.pagos-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-.pagos-link { margin-left: 10px; background: none; border: 0; padding: 0; color: var(--color-accent); cursor: pointer; font: inherit; }
+.plans-bar { display:flex; align-items:center; gap:12px; margin:12px 0; }
+.plans-bar label { display:flex; align-items:center; gap:8px; font-size:13px; }
+.plans-note { font-size:12px; color:#71717a; margin-top:16px; }
 
-/* Graphite, warm paper, bold type and simple rings from the design references. */
-.commerce-hero { display: flex; align-items: center; justify-content: space-between; gap: 20px; overflow: hidden; padding: clamp(18px, 4vw, 42px); margin-bottom: 20px; border-radius: var(--sergio-cover-radius); background: var(--sergio-graphite); color: var(--sergio-cream); }
-.commerce-hero h2 { margin: 10px 0; max-width: 17ch; font-size: clamp(27px, 5vw, 55px); line-height: .99; letter-spacing: -.055em; }
-.commerce-hero p { color: var(--sergio-on-graphite-muted); max-width: 55ch; margin: 0; font-size: 14px; line-height: 1.5; }
-.commerce-kicker { display: inline-flex; gap: 7px; align-items: center; font-size: 12px; font-weight: 650; }
-.commerce-ring { border: clamp(12px, 4vw, 36px) solid var(--sergio-coral); border-top-color: var(--sergio-coral-hover); border-radius: 50%; width: clamp(65px, 17vw, 188px); aspect-ratio: 1; flex: 0 0 auto; transform: rotate(-30deg); }
-.plans-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 225px), 1fr)); }
-.plan-card { border-radius: var(--sergio-card-radius); padding: 22px; }
-.plan-card[data-recommended='true'] { border-color: var(--color-accent); }
-.plan-card[data-recommended='true'] h2 small { color: var(--color-text); }
-.plan-card .plan-price { font-size: clamp(28px, 3vw, 40px); letter-spacing: -.045em; }
-.plan-capacity { display: flex; align-items: baseline; gap: 7px; font-size: 12px; color: var(--color-text-secondary); }
-.plan-capacity strong { font-size: 19px; color: var(--color-text); font-variant-numeric: tabular-nums; }
-.pay-checkout { max-width: 610px; }
-.pay-checkout .pay-summary { background: var(--sergio-graphite); color: var(--sergio-cream); border-radius: var(--sergio-cover-radius); padding: 26px; }
-.pay-checkout .pay-summary .plan-price { font-size: 44px; letter-spacing: -.045em; }
-.pay-checkout .pay-summary small, .pay-checkout .pay-summary li::before { color: var(--sergio-on-graphite-muted); }
-.pay-checkout .pay-summary h2 { margin-top: 12px; }
-.pay-method { grid-template-columns: minmax(68px, max-content) minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 60px; }
-.pay-mark { border-radius: 8px; min-height: 32px; display: grid; place-items: center; padding: 4px 6px; background: var(--color-bg-tertiary); font-size: 12px; }
-.pay-method .pay-mark[data-processor='stripe'] { color: #4b38df; background: #eeebff; letter-spacing: -.045em; }
-.pay-method .pay-mark[data-processor='paypal'] { color: #123a76; background: #e7f2ff; font-style: italic; }
-.pay-method-copy { min-width: 0; display: grid; gap: 3px; }
-.pay-method-copy small { line-height: 1.35; }
-.pay-trust { display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
-.pay-trust svg { flex: 0 0 auto; }
-.pagos-funding { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 215px), 1fr)); gap: 12px; margin-bottom: 10px; }
-.pagos-funding > div { padding: 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 18px; }
-.pagos-funding p { font-size: 13px; line-height: 1.5; color: var(--color-text-secondary); }
-.pagos-funding a { font-size: 13px; color: var(--color-accent); text-decoration: underline; }
+.plans-rows { display:flex; flex-direction:column; gap:8px; }
+.plans-rows > div { display:flex; justify-content:space-between; font-size:13px; padding:8px 0; border-bottom:1px solid #1e1e2e; }
+.plans-rows > div span:first-child { color:#a1a1aa; }
+.plans-key { display:flex; gap:8px; margin-top:8px; }
+.plans-key input { flex:1; }
+
+.license-toast { position:fixed; bottom:16px; right:16px; background:#12121a; border:1px solid #27273a; border-radius:12px; padding:14px 18px; display:flex; align-items:center; gap:12px; font-size:13px; z-index:100; }
+.license-toast button { background:#e8b86d20; border:1px solid #e8b86d40; color:#e8b86d; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; }
+.offline-banner { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:#12121a; border:1px solid #27273a; border-radius:12px; padding:10px 18px; display:flex; align-items:center; gap:12px; font-size:12px; color:#a1a1aa; z-index:100; }
+
+.meter { margin-bottom:10px; }
+.meter-top { display:flex; justify-content:space-between; font-size:12px; color:#a1a1aa; margin-bottom:4px; }
+.meter-bar { height:8px; background:#1e1e2e; border-radius:4px; overflow:hidden; }
+.meter-bar i { display:block; height:100%; background:linear-gradient(90deg, #e8b86d, #d4a853); border-radius:4px; transition:width 0.3s; }
+
+.commerce-hero { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:24px; background:linear-gradient(135deg, #0f0f1a, #1a1a2e); border-radius:16px; margin-bottom:16px; border:1px solid #27273a; }
+.commerce-hero h2 { font-size:22px; margin:0 0 8px; }
+.commerce-hero p { font-size:13px; color:#a1a1aa; margin:0; }
+.commerce-kicker { font-size:11px; color:#e8b86d; text-transform:uppercase; letter-spacing:1px; }
+.commerce-ring { width:80px; height:80px; border-radius:50%; background:conic-gradient(from 0deg, #e8b86d, #00f5d4, #ff6b9d, #e8b86d); opacity:0.15; flex-shrink:0; }
+
 @media (max-width: 430px) { .commerce-ring { align-self: start; } .pay-method { gap: 8px; padding-inline: 10px; } }
+
+/* ============================================================
+   Psychological Pricing Effects — FOMO, Decoy, Scarcity, Streaks
+   ============================================================ */
+
+/* FOMO Timer */
+.plans-fomo-timer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #ff6b3515, #ff950015);
+  border: 1px solid #ff6b3530;
+  border-radius: 10px;
+  padding: 10px 16px;
+  margin: 12px 0;
+  font-size: 13px;
+  color: #ff6b35;
+}
+.plans-fomo-timer b {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+}
+
+/* Social Proof */
+.plans-social-proof {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #00f5d4;
+  margin-bottom: 12px;
+}
+.plans-live-dot {
+  width: 6px;
+  height: 6px;
+  background: #00f5d4;
+  border-radius: 50%;
+  animation: pulse-live 2s infinite;
+}
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* Streak Banner */
+.plans-streak {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #e8b86d15, #ff6b3510);
+  border: 1px solid #e8b86d30;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+.plans-streak svg {
+  color: #ff6b35;
+  flex-shrink: 0;
+}
+.plans-streak b {
+  display: block;
+  font-size: 13px;
+  color: #e8b86d;
+}
+.plans-streak span {
+  font-size: 12px;
+  color: #a1a1aa;
+}
+
+/* Decoy / Popular Badge */
+.plan-badge-popular {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, #e8b86d, #d4a853);
+  color: #0a0a0f;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.plan-badge-fomo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ff6b3530;
+  color: #ff6b35;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Decoy plan highlight */
+.plan-card[data-decoy='true'] {
+  border-color: #e8b86d60;
+  box-shadow: 0 0 0 1px #e8b86d20, 0 8px 24px rgba(232, 184, 109, 0.08);
+  position: relative;
+  transform: scale(1.02);
+}
+.plan-card[data-decoy='true']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #e8b86d, #d4a853);
+  border-radius: 16px 16px 0 0;
+}
+
+/* Price strikethrough for FOMO */
+.plan-price-old {
+  text-decoration: line-through;
+  color: #71717a;
+  font-size: 18px;
+  margin-right: 8px;
+}
+.plan-price-new {
+  color: #e8b86d;
+  font-size: 28px;
+}
+
+/* Decoy button */
+.decoy-btn {
+  background: linear-gradient(135deg, #e8b86d, #d4a853) !important;
+  color: #0a0a0f !important;
+  font-weight: 700 !important;
+}
+
+/* FOMO Footer */
+.plans-fomo-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: #1a1a2e;
+  border: 1px solid #27273a;
+  border-radius: 10px;
+}
+.plans-fomo-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #a1a1aa;
+}
+.plans-fomo-item b {
+  color: #e8b86d;
+}
+
+/* Video hero */
+.video-hero {
+  background: linear-gradient(135deg, #0f0f1a, #1a1a2e) !important;
+  border: 1px solid #27273a;
+}
+.video-hero h2 {
+  color: #fff !important;
+}
+.video-hero .commerce-kicker {
+  color: #e8b86d !important;
+}
