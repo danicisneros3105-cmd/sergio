@@ -1,37 +1,30 @@
 import { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Layout } from './components/Layout';
-import { ChatPage } from './pages/ChatPage';
+import { VideoLayout } from './components/VideoLayout';
 // Everything else loads on demand: the first screen opens in milliseconds.
-const OrganizerPage = lazy(() => import('./pages/OrganizerPage').then((m) => ({ default: m.OrganizerPage })));
 const LegalPage = lazy(() => import('./pages/LegalPage').then((m) => ({ default: m.LegalPage })));
+const OrganizerPage = lazy(() => import('./pages/OrganizerPage').then((m) => ({ default: m.OrganizerPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const GetStartedPage = lazy(() => import('./pages/GetStartedPage').then((m) => ({ default: m.GetStartedPage })));
 const DataSourcesPage = lazy(() => import('./pages/DataSourcesPage').then((m) => ({ default: m.DataSourcesPage })));
 const LogsPage = lazy(() => import('./pages/LogsPage').then((m) => ({ default: m.LogsPage })));
 const ExtensionPage = lazy(() => import('./pages/ExtensionPage').then((m) => ({ default: m.ExtensionPage })));
 const GalleryPage = lazy(() => import('./pages/GalleryPage').then((m) => ({ default: m.GalleryPage })));
+const VideoPage = lazy(() => import('./pages/VideoPage').then((m) => ({ default: m.VideoPage })));
 const FacesPage = lazy(() => import('./pages/FacesPage').then((m) => ({ default: m.FacesPage })));
-const HealthPage = lazy(() => import('./pages/HealthPage').then((m) => ({ default: m.HealthPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })));
-const CoworkPage = lazy(() => import('./pages/CoworkPage').then((m) => ({ default: m.CoworkPage })));
 const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
 const CapturePage = lazy(() => import('./pages/CapturePage'));
-const NodesPage = lazy(() => import('./pages/NodesPage'));
 const ConnectomePage = lazy(() => import('./pages/ConnectomePage'));
 const SignInPage = lazy(() => import('./pages/SignInPage'));
 const MeetingPage = lazy(() => import('./pages/MeetingPage'));
-const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
 const PlansPage = lazy(() => import('./pages/PlansPage').then((m) => ({ default: m.PlansPage })));
 const PayPage = lazy(() => import('./pages/PayPage'));
 const HelpPage = lazy(() => import('./pages/HelpPage').then((m) => ({ default: m.HelpPage })));
 const AutomatizarPage = lazy(() => import('./pages/AutomatizarPage'));
-const SwarmPage = lazy(() => import('./pages/SwarmPage'));
 const ExtensionsPage = lazy(() => import('./pages/ExtensionsPage'));
-import { ModelSheet } from './components/ModelSheet';
 import { CelebrationLayer } from './components/Celebration/CelebrationLayer';
-import { Shortcuts } from './components/Shortcuts/Shortcuts';
 import { SetupScreen } from './components/SetupScreen';
 import { Toaster } from './components/ui/sonner';
 import { useAppStore } from './lib/store';
@@ -57,7 +50,6 @@ export default function App() {
   const setServerInfo = useAppStore((s) => s.setServerInfo);
   const setSavings = useAppStore((s) => s.setSavings);
   const settings = useAppStore((s) => s.settings);
-  const commandPaletteOpen = useAppStore((s) => s.commandPaletteOpen);
   const optInEnabled = useAppStore((s) => s.optInEnabled);
   const optInDisplayName = useAppStore((s) => s.optInDisplayName);
   const optInEmail = useAppStore((s) => s.optInEmail);
@@ -173,21 +165,6 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
-  const toggleSystemPanel = useAppStore((s) => s.toggleSystemPanel);
-
-  // Global keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl/⌘ K is the shortcut palette now (components/Shortcuts); the model
-      // picker opens from it («Cambiar de modelo») and from the chat.
-      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
-        e.preventDefault();
-        toggleSystemPanel();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleSystemPanel]);
 
 
   if (!setupDone) {
@@ -202,16 +179,12 @@ export default function App() {
         <Route path="entrar" element={<SignInPage />} />
         <Route path="legal" element={<LegalPage />} />
         <Route path="legal/:doc" element={<LegalPage />} />
-        <Route element={<Layout />}>
-          <Route index element={<ChatPage />} />
+        <Route index element={<Navigate to="/video" replace />} />
+        <Route element={<VideoLayout />}>
+          <Route path="video" element={<VideoPage />} />
           <Route path="biblioteca" element={<Navigate to="/galeria" replace />} />
           <Route path="galeria" element={<GalleryPage />} />
-          <Route path="nodes" element={<NodesPage />} />
-          <Route path="nodes/:id" element={<NodesPage />} />
-          <Route path="swarm" element={<SwarmPage />} />
-          <Route path="swarm/:id" element={<SwarmPage />} />
-          <Route path="creator/*" element={<Navigate to="/chat" replace />} />
-          <Route path="chat" element={<ChatPage />} />
+          <Route path="creator/*" element={<Navigate to="/video" replace />} />
           <Route path="workspace" element={<OrganizerPage />} />
           <Route path="workspace/:id" element={<WorkspacePage />} />
           <Route path="capturar" element={<CapturePage />} />
@@ -220,7 +193,7 @@ export default function App() {
           <Route path="settings" element={<SettingsPage />} />
           <Route path="get-started" element={<GetStartedPage />} />
           <Route path="data-sources" element={<DataSourcesPage />} />
-          <Route path="agents" element={<Navigate to="/nodes" replace />} />
+          <Route path="agents" element={<Navigate to="/video" replace />} />
           <Route path="planes" element={<PlansPage />} />
           <Route path="pagar" element={<PayPage />} />
           <Route path="pagar/:estado" element={<PayPage />} />
@@ -232,25 +205,19 @@ export default function App() {
           <Route path="extensiones/:tab" element={<ExtensionsPage />} />
           <Route path="studio" element={<Navigate to="/extensiones" replace />} />
           <Route path="developer" element={<Navigate to="/extensiones" replace />} />
-          <Route path="pensar" element={<Navigate to="/chat" replace />} />
-          <Route path="cowork" element={<CoworkPage />} />
+          <Route path="pensar" element={<Navigate to="/video" replace />} />
           <Route path="automatizar" element={<AutomatizarPage />} />
-          <Route path="salud" element={<HealthPage />} />
           <Route path="perfil" element={<ProfilePage />} />
           <Route path="atajos" element={<ConnectomePage />} />
           <Route path="uso" element={<Navigate to="/settings?tab=cuenta" replace />} />
-          <Route path="proyectos" element={<ProjectsPage />} />
           <Route path="cerebro" element={<ConnectomePage />} />
-          {/* An address that does not exist goes home, never to a blank page. */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/video" replace />} />
         </Route>
       </Routes>
       </Suspense>
       </ErrorBoundary>
       <Toaster position="bottom-right" />
-      {commandPaletteOpen && <ModelSheet />}
       <CelebrationLayer />
-      <Shortcuts />
     </>
   );
 }
