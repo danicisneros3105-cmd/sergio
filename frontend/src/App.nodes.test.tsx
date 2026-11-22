@@ -1,6 +1,7 @@
-import { renderToReadableStream } from 'react-dom/server';
-import { MemoryRouter } from 'react-router';
-import { expect, it, vi } from 'vitest';
+// @vitest-environment jsdom
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router';
+import { afterEach, expect, it, vi } from 'vitest';
 
 vi.hoisted(() => {
   const data = new Map<string, string>();
@@ -11,33 +12,52 @@ vi.hoisted(() => {
   });
 });
 
-vi.mock('./components/Layout', async () => {
+vi.mock('./components/VideoLayout', async () => {
   const { Outlet } = await import('react-router');
-  return { Layout: () => <Outlet /> };
+  return { VideoLayout: () => <Outlet /> };
 });
-vi.mock('./components/Desktop/UpdateChecker', () => ({ UpdateChecker: () => null }));
 vi.mock('./components/ui/sonner', () => ({ Toaster: () => null }));
-vi.mock('./lib/api', async (original) => ({
-  ...await original<typeof import('./lib/api')>(),
+vi.mock('./components/Celebration/CelebrationLayer', () => ({ CelebrationLayer: () => null }));
+vi.mock('./pages/VideoPage', () => ({ VideoPage: () => <div data-testid="video-home">Video</div> }));
+vi.mock('./lib/api', () => ({
   isTauri: () => false,
+  fetchModels: async () => [],
+  fetchServerInfo: async () => ({}),
+  fetchSavings: async () => ({ per_provider: [] }),
+  submitSavings: vi.fn(),
 }));
+vi.mock('./lib/analytics', () => ({ track: vi.fn(), hashId: async () => '' }));
 
 import App from './App';
-import { TOOLBAR_ITEMS } from './components/Shell/Toolbar';
 
-it('opens the real Nodes page from its desktop/menu URL', async () => {
-  const stream = await renderToReadableStream(
-    <MemoryRouter initialEntries={['/nodes']}><App /></MemoryRouter>,
-  );
-  await stream.allReady;
-  const html = await new Response(stream).text();
-  // The Nodes page itself (still loading its list), not the error screen.
-  expect(html).toContain('paper-page');
-  expect(html).not.toContain('Cargando espacio de trabajo');
-  expect(TOOLBAR_ITEMS.filter(item => item.path === '/nodes')).toHaveLength(1);
+afterEach(() => cleanup());
+
+function CurrentPath() {
+  const { pathname } = useLocation();
+  return <output data-testid="current-path">{pathname}</output>;
+}
+
+it('redirects retired areas to the Video screen', async () => {
+  for (const path of ['/chat', '/nodes', '/salud', '/proyectos', '/swarm', '/cowork']) {
+    const view = render(
+      <MemoryRouter initialEntries={[path]}>
+        <App />
+        <CurrentPath />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent('/video'));
+    expect(screen.getByTestId('video-home')).toBeInTheDocument();
+    view.unmount();
+  }
 });
 
-it('keeps Creator out of the application navigation', () => {
-  expect(TOOLBAR_ITEMS.some(item => String(item.path) === '/creator')).toBe(false);
-  expect(TOOLBAR_ITEMS.some(item => String(item.label) === 'Creator')).toBe(false);
+it('keeps the Video home route available', async () => {
+  render(
+    <MemoryRouter initialEntries={['/']}>
+      <App />
+      <CurrentPath />
+    </MemoryRouter>,
+  );
+  await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent('/video'));
+  expect(screen.getByTestId('video-home')).toBeInTheDocument();
 });
