@@ -328,15 +328,19 @@ async def import_gallery(files: list[UploadFile] = File(...)) -> Dict[str, Any]:
     from openjarvis.video_essay import galeria
 
     extensions = [Path(f.filename or "").suffix.lower() for f in files]
-    if not 1 <= len(files) <= 6 or any(ext not in galeria.EXTENSIONS for ext in extensions):
-        raise HTTPException(400, "Selecciona de uno a seis videos compatibles.")
+    if not 1 <= len(files) <= galeria.MAX_CLIPS or any(ext not in galeria.EXTENSIONS for ext in extensions):
+        raise HTTPException(400, "Selecciona de uno a veinte videos compatibles.")
     batch = uuid.uuid4().hex
     folder = galeria.batch_path(batch)
     folder.mkdir(parents=True, exist_ok=False)
+    total_bytes = 0
     try:
         for index, (file, ext) in enumerate(zip(files, extensions), 1):
             with (folder / f"{index:02d}{ext}").open("wb") as output:
                 while chunk := await file.read(1024 * 1024):
+                    total_bytes += len(chunk)
+                    if total_bytes > galeria.MAX_BATCH_BYTES:
+                        raise HTTPException(413, "El lote supera el límite de 512 MB.")
                     output.write(chunk)
                 if output.tell() == 0:
                     raise HTTPException(400, f"El video {index} está vacío.")
@@ -409,6 +413,10 @@ def approve_post(job_id: str) -> Dict[str, Any]:
         "video": res.get("url", ""),
         "titulo": pkg.get("title", ""),
         "descripcion": pkg.get("description", ""),
+        "hashtags": pkg.get("hashtags", []),
+        "tags": pkg.get("tags", []),
+        "portada": pkg.get("cover_url", ""),
+        "subtitulos": res.get("subtitulos", ""),
     }
 
 
