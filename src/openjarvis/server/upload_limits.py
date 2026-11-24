@@ -19,11 +19,14 @@ class UploadLimitsMiddleware:
 
     async def __call__(self, scope, receive, send):
         path = scope.get("path", "")
-        if scope["type"] != "http" or not (
-            path.startswith("/v1/connectors/upload/") or path.rstrip("/") == "/v1/personal/videos/galeria"
-        ):
+        gallery_path = path.rstrip("/") == "/v1/personal/videos/galeria"
+        video_path = path.rstrip("/") == "/v1/video/boost" and scope.get("method") == "POST"
+        plan_take_path = path.startswith("/v1/creator/plan/") and "/toma/" in path
+        connector_path = path.startswith("/v1/connectors/upload/")
+        if scope["type"] != "http" or not (connector_path or gallery_path or video_path or plan_take_path):
             await self.app(scope, receive, send)
             return
+        max_bytes = 512 * 1024 * 1024 if gallery_path or video_path or plan_take_path else self.max_bytes
 
         async def reject(status, detail):
             await JSONResponse({"detail": detail}, status_code=status)(
@@ -36,7 +39,7 @@ class UploadLimitsMiddleware:
         except ValueError:
             await reject(400, "Invalid Content-Length")
             return
-        if declared < 0 or declared > self.max_bytes:
+        if declared < 0 or declared > max_bytes:
             await reject(413, "Upload body is too large")
             return
         try:
@@ -47,7 +50,7 @@ class UploadLimitsMiddleware:
         try:
             with tempfile.SpooledTemporaryFile(max_size=1024 * 1024) as body:
                 total = 0
-                timeout = max(self.receive_timeout, 180) if path.rstrip("/") == "/v1/personal/videos/galeria" else self.receive_timeout
+                timeout = max(self.receive_timeout, 180) if gallery_path or video_path or plan_take_path else self.receive_timeout
                 deadline = asyncio.get_running_loop().time() + timeout
                 while True:
                     remaining = deadline - asyncio.get_running_loop().time()
@@ -63,7 +66,7 @@ class UploadLimitsMiddleware:
                         return
                     data = message.get("body", b"")
                     total += len(data)
-                    if total > self.max_bytes:
+                    if total > max_bytes:
                         await reject(413, "Upload body is too large")
                         return
                     body.write(data)
